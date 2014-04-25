@@ -29,13 +29,13 @@ function love.load()
 	puffins = {}
 
 	-- create a puffin and add it to component tables
-	puffin = {px = 160, py = 160, vx = 0, vy = 0, ax = 0, ay = 0, mass = 1, density = 1, sprite = 1}	
+	puffin = {px = 160, py = 160, vx = 0, vy = 0, ax = 0, ay = 0, mass = 0.5, density = 600, sprite = 1}	
 	table.insert(draw, puffin)
 	table.insert(physics, puffin)
 	table.insert(puffins, puffin)
 
 	-- create a test object and add it to component tables
-	object = {px = 260, py = 190, vx = 0, vy = 0, ax = 0, ay = 0, mass = 1, density = 1, sprite = 2}	
+	object = {px = 260, py = 190, vx = 0, vy = 0, ax = 0, ay = 0, mass = 0.5, density = 600, sprite = 2}	
 	table.insert(draw, object)
 	table.insert(physics, object)
 
@@ -71,9 +71,10 @@ function doPhysics(dt)
 
 		--new acceleration
 		v.ax = 0
-		v.ay = 0
-		if (v.py < 180) then v.ay = gravity
-		else v.ay = -gravity
+		v.ay = gravity
+		local volume = v.mass / v.density
+		if (v.py < waterline) then v.ay = v.ay - (airdensity*volume*gravity)/v.mass
+		else v.ay = v.ay - (waterdensity*volume*gravity)/v.mass
 		end
 	end
 end

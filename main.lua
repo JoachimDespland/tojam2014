@@ -1,5 +1,5 @@
 function love.load()
-	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=true})
+	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=false})
 
 	love.graphics.setDefaultFilter("nearest", "nearest", 0)
 	image = love.graphics.newImage("tiles.png")
@@ -7,18 +7,18 @@ function love.load()
 	canvas = love.graphics.newCanvas(512, 512)
 
 	-- world variables
-	airdensity = 1.225
-	waterdensity = 1000
-	airdrag = 1
-	waterdrag = 10
-	gravity = 50
+	airdensity = 0.001225
+	waterdensity = 1
+	gravity = 70
 	waterline = 180
 
 	--puffin variables
-	airspower = 1
-	swimpower = 1
-	swimspeed = 1
-	airspeed = 1
+	flypower = 0.005
+	swimpower = 0.005
+	swimspeed = 100
+	flyspeed = 100
+	swimlift = 0.0002
+	flylift = 0.00015
 
 	-- variables component tables
 	physics = {}
@@ -28,14 +28,14 @@ function love.load()
 	-- create a puffin and add it to component tables
 	puffin = {
 		px = 160, 
-		py = 160, 
+		py = 0, 
 		vx = 0, 
 		vy = 0, 
 		mass = 0.5, 
-		density = 600, 
+		density = 0.6, 
 		sprite = 1, 
-		drag = 0.0001,
-		movex = 1,
+		drag = 0.001,
+		movex = 0,
 		movey = 0
 	}	
 	table.insert(draw, puffin)
@@ -43,9 +43,9 @@ function love.load()
 	table.insert(puffins, puffin)
 
 	-- create a test object and add it to component tables
-	object = {px = 260, py = 190, vx = 0, vy = 0, mass = 0.5, density = 600, sprite = 2, drag = 0.00001}	
+	object = {px = 260, py = 190, vx = 0, vy = 0, mass = 0.5, density = 600, sprite = 2, drag = 0.1}	
 	table.insert(draw, object)
-	table.insert(physics, object)
+	--table.insert(physics, object)
 end
 
 function fillSprites()
@@ -83,12 +83,21 @@ function doPhysics(dt)
 		v.ax = 0
 		v.ay = gravity
 
-		--fluid density
+		--water/air variables
 		local fluiddensity = 0
+		local movepower = 0
+		local movespeed = 0
+		local movelift = 0
 		if (v.py < waterline) then 
 			fluiddensity = airdensity
+			movepower = flypower
+			movespeed = flyspeed
+			movelift = flylift
 		else 
 			fluiddensity = waterdensity
+			movepower = swimpower
+			movespeed = swimspeed
+			movelift = swimlift
 		end
 
 		--buoyancy
@@ -96,12 +105,47 @@ function doPhysics(dt)
 		v.ay = v.ay - (fluiddensity*volume*gravity)/v.mass
 
 
+		local velocityx = v.vx
+		local velocityy = v.vy
+
+		--lift
+		local speed = math.sqrt(velocityx*velocityx+velocityy*velocityy)
+		local side = velocityy * v.movex - velocityx * v.movey
+		local dotproduct = (velocityx/speed) * v.movex + (velocityy/speed) * v.movey
+		if side ~= 0 and dotproduct > -0.3 then
+			local theta = -speed*movelift*(side/math.abs(side))
+			local cs = math.cos(theta);
+			local sn = math.sin(theta);
+
+			v.vx = velocityx * cs - velocityy * sn;
+			v.vy = velocityx * sn + velocityy * cs;
+		end
+
 		--drag
-		local speed = math.sqrt(v.vx*v.vx+v.vy*v.vy)
-		local drag = (fluiddensity*speed*speed*v.drag)/v.mass
-		if (speed ~= 0) then
-			v.ax = v.ax - (v.vx/speed)*drag
-			v.ay = v.ay - (v.vy/speed)*drag
+		local drag = (fluiddensity*v.drag)/v.mass
+
+		v.vx = v.vx/(1+drag)
+		v.vy = v.vy/(1+drag)
+
+		--fly/swim
+		if v.movex ~= 0 or v.movey ~= 0 then
+
+			--propelling
+			local relvx = velocityx - movespeed*v.movex
+			local relvy = velocityy - movespeed*v.movey
+
+			local scalar = (relvx * v.movex + relvy * v.movey)
+
+			if scalar < 0 then
+				local projx = scalar*v.movex
+				local projy = scalar*v.movey
+
+				local rejx = v.movex - projx
+				local rejy = v.movey - projy
+
+				v.vx = v.vx + projx/(1+movepower) - projx
+				v.vy = v.vy + projy/(1+movepower) - projy
+			end
 		end
 
 		--velocity
@@ -116,17 +160,25 @@ end
 
 function doPuffins()
 	for k,v in pairs(puffins) do
+
 		if love.keyboard.isDown( "down" ) then
-			v.ay = v.ay+10
+			v.movey = 1
+		elseif love.keyboard.isDown( "up" ) then
+			v.movey = -1
+		else v.movey = 0
 		end
-		if love.keyboard.isDown( "up" ) then
-			v.ay = v.ay-10
-		end
+
 		if love.keyboard.isDown( "right" ) then
-			v.ax = v.ax+10
+			v.movex = 1
+		elseif love.keyboard.isDown( "left" ) then
+			v.movex = -1
+		else v.movex = 0
 		end
-		if love.keyboard.isDown( "left" ) then
-			v.ax = v.ax-10
+
+		local norm = math.sqrt(v.movex*v.movex+v.movey*v.movey)
+		if (norm ~= 0) then
+			v.movex = v.movex/norm
+			v.movey = v.movey/norm
 		end
 	end
 end

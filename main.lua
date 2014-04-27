@@ -3,7 +3,7 @@ function love.load()
 
 	love.graphics.setDefaultFilter("nearest", "nearest", 0)
 	image = love.graphics.newImage("puffin_sprite_sm.png")
-	jelly_image = love.graphics.newImage("jelly_sprite_sm_line.png")
+	jelly_image = love.graphics.newImage("jelly_final.png")
 	fish_image = love.graphics.newImage("fish.png")
 
 	bg0 = love.graphics.newImage("Background_Skyback.png")
@@ -35,11 +35,11 @@ function love.load()
 	--puffin variables
 	flypower = 0.03
 	swimpower = 0.03
-	swimspeed = 108
-	flyspeed = 108
+	swimspeed = 105
+	flyspeed = 105
 	swimlift = 0.0002
 	flylift = 0.00015
-	flapthreshold = 5
+	flapthreshold = 50
 	turnthreshold = 3
 
 	-- variables component tables
@@ -61,9 +61,9 @@ function love.load()
 
 		--physics
 		px = 180, 
-		py = 60, 
+		py = waterline-60, 
 		vx = 0, 
-		vy = 0, 
+		vy = -flapthreshold, 
 		mass = 0.5, 
 		density = 0.5, 
 		waterdrag = 0.001,
@@ -86,11 +86,63 @@ function love.load()
 		animstart = 0,
 		animcount = 4,
 		animloop = false,
+
+		--keyboard
+		upkey = "up",
+		downkey = "down",
+		leftkey = "left",
+		rightkey = "right",
 	}	
 	table.insert(draw, puffin)
 	table.insert(physics, puffin)
 	table.insert(puffins, puffin)
 	table.insert(animations, puffin)
+
+
+
+	puffin2 = {
+		--sprite
+		sprite = 0, 
+		line = 0,
+
+		--physics
+		px = 360, 
+		py = waterline-60, 
+		vx = 0, 
+		vy = -flapthreshold, 
+		mass = 0.5, 
+		density = 0.5, 
+		waterdrag = 0.001,
+		airdrag = 0.2,
+
+		--puffin
+		movex = 0,
+		movey = 0,
+		left = false,
+		underwater = false,
+		splash1 = love.audio.newSource("splash_out_v3.wav", "static"),
+		splash2 = love.audio.newSource("splash_in_v1.wav", "static"),
+		gulp = love.audio.newSource("gulp_v1.wav", "static"),
+		slap = love.audio.newSource("jelly_slap_v7.wav"),
+
+
+		--animation
+		animstate = 0,
+		animspeed = 10,
+		animstart = 0,
+		animcount = 4,
+		animloop = false,
+
+		--keyboard
+		upkey = "wav",
+		downkey = "s",
+		leftkey = "a",
+		rightkey = "d",
+	}	
+	table.insert(draw, puffin2)
+	table.insert(physics, puffin2)
+	table.insert(puffins, puffin2)
+	table.insert(animations, puffin2)
 
 
 	for i = 0, 15 , 1 do
@@ -157,15 +209,15 @@ function createFish(t)
 		mindepth = 1/2
 	elseif t == 15 then
 		speed = 25+math.random(-5,5)
-		frames = 6
+		frames = 8
 		mindepth = 4/5
-	elseif t == 21 then
+	elseif t == 13 then
 		speed = 20+math.random(-5,5)
 		frames = 4
 		mindepth = 1/3
 	else
 		speed = 13+math.random(-5,5)
-		frames = 4
+		frames = 8
 		mindepth = 0
 	end
 
@@ -222,7 +274,7 @@ function love.update(dt)
 
 	if love.keyboard.isDown( "escape" ) then love.event.quit() end
 
-	camera=-puffin.px+320
+	camera=-0.5*(puffin.px+puffin2.px)+320
 	doPhysics(dt)
 	doPuffins(dt)
 	doFish(dt)
@@ -241,6 +293,12 @@ function doBubbles(x,y,velx,vely,wid,n)
 			density = 0.5, 
 			waterdrag = 0.00066,
 			airdrag = 0.001,
+
+			animstate = math.random(0,frames),
+			animspeed = 10,
+			animstart = 0,
+			animcount = frames,
+			animloop = true,			
 		}
 		table.insert(bubbles, bubble)
 	end
@@ -465,18 +523,30 @@ function doFish(dt)
 end
 
 function doPuffins(dt)
+
+	--puffin collision
+	if math.abs(puffin.px-puffin2.px) > 640 
+		and ((puffin.px > puffin2.px and puffin.vx-puffin2.vx > 0) 
+		or (puffin.px < puffin2.px and puffin.vx-puffin2.vx < 0)) then 
+
+		local tempvel = puffin.vx*0.8
+		puffin.vx = puffin2.vx*0.8
+		puffin2.vx = tempvel
+
+	end
+
 	for k,v in pairs(puffins) do
 
-		if love.keyboard.isDown( "down" ) then
+		if love.keyboard.isDown(v.downkey) then
 			v.movey = 1
-		elseif love.keyboard.isDown( "up" ) then
+		elseif love.keyboard.isDown(v.upkey) then
 			v.movey = -1
 		else v.movey = 0
 		end
 
-		if love.keyboard.isDown( "right" ) then
+		if love.keyboard.isDown(v.rightkey) then
 			v.movex = 1
-		elseif love.keyboard.isDown( "left" ) then
+		elseif love.keyboard.isDown(v.leftkey) then
 			v.movex = -1
 		else v.movex = 0
 		end
@@ -511,21 +581,25 @@ function doPuffins(dt)
 		end	
 
 		--fly/swim-------------
+		local vnx = v.vx/speed
+		local vny = v.vy/speed
+
 		if (v.py < waterline) then
-			if (v.line == 0 or v.line == 1) and v.vy < 0 then
-				v.vy = v.vy + (-flyspeed-v.vy)*flypower
+			if (v.line == 0 or v.line == 1) and v.movey <= 0 then -- is flying
+				if v.movey == 0 and v.movex == 0 then v.movey = -1 end
+
+				if v.vy > flyspeed*v.movey then v.vy = v.vy + (flyspeed*v.movey-v.vy)*flypower*math.abs(v.movey) end
+				if v.movex < 0 and v.vx > flyspeed*v.movex then 
+					v.vx = v.vx + (flyspeed*v.movex-v.vx)*flypower*math.abs(v.movex)
+				end
+				if v.movex > 0 and v.vx < flyspeed*v.movex then 
+					v.vx = v.vx + (flyspeed*v.movex-v.vx)*flypower*math.abs(v.movex)
+				end
 			end
 		else
-			if true then
-				if true then -- v.movex == 0 and v.movey == 0 then
-					v.movex = v.vx/speed
-					v.movey = v.vy/speed
-				end
-
-				if swimspeed > speed then
-					v.vx = v.vx + (v.movex*swimspeed-v.vx)*swimpower*math.abs(v.movex)
-					v.vy = v.vy + (v.movey*swimspeed-v.vy)*swimpower*math.abs(v.movey)
-				end
+			if swimspeed > speed then
+				v.vx = v.vx + (vnx*swimspeed-v.vx)*swimpower
+				v.vy = v.vy + (vny*swimspeed-v.vy)*swimpower
 			end
 		end
 
@@ -535,6 +609,7 @@ function doPuffins(dt)
 		function glide() 
 			v.animloop = true
 			v.animcount = 8
+			v.animspeed = 10 
 			if v.line < 8 then v.animstate = 8 end
 
 			angle = math.atan2(v.vy/speed,v.vx/speed)
@@ -579,7 +654,12 @@ function doPuffins(dt)
 
 		function fly()
 			v.animcount = 4
-			v.animspeed = 10
+			if (v.movey > 0) then 
+				v.animspeed = 0
+				v.animstate = 0
+			else  
+				v.animspeed = 10 
+			end
 			v.animloop = true
 			if v.line ~= 0 and v.line ~=1 then v.animstate = 0 end
 			if v.left == true then 
@@ -595,7 +675,9 @@ function doPuffins(dt)
 				glide()
 			elseif v.vy < -flyspeed then 
 				glide()
-			else 
+			elseif (v.line ~= 0 and v.line ~= 1) and v.vy > 0 then
+				glide()
+			else
 				fly()
 			end
 		else 
@@ -605,10 +687,11 @@ function doPuffins(dt)
 		--splash
 		if (v.py < waterline and v.underwater == true) then 
 			v.underwater = false
-			v.vy = math.min(v.vy, -100)
+			v.vy = math.min(v.vy, -80)
 			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)
 			v.splash1:play()
 		elseif (v.py > waterline and v.underwater == false) then
+			v.vy = math.max(v.vy, 80)
 			v.underwater = true
 			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)			
 			doBubbles(v.px,waterline+0.1,v.vx,v.vy,8,200)
@@ -662,5 +745,49 @@ function doPuffins(dt)
 				v2.animspeed = 85
 			end
 		end
+
+		-- puffin collision
+		for k2,v2 in next,puffins,k do
+			local dx = v.px-v2.px
+			local dy = v.py-v2.py
+
+			local dvx = v.vx-v2.vx
+			local dvy = v.vy-v2.vy
+
+			local dist = math.sqrt(dx*dx+dy*dy)
+			local nx = dx/dist
+			local ny = dy/dist
+
+			local vn = dvx*nx+dvy*ny
+
+			if dist < 10 and vn < 0 then
+
+				v.slap:play()
+
+				local impulse = -30+2*vn/(1/v.mass+1/v2.mass)
+
+				local ix = nx*impulse
+				local iy = ny*impulse
+
+				v.vx = v.vx - ix/v.mass
+				v.vy = v.vy - iy/v.mass
+
+				v2.vx = v2.vx + ix/v2.mass
+				v2.vy = v2.vy + iy/v2.mass
+
+				cx = 0.5*(v2.px + v.px)
+				cy = 0.5*(v2.py + v.py)
+
+				v2.px = cx-nx*6
+				v2.py = cy-ny*6
+				v.px = cx+nx*6
+				v.py = cy+ny*6
+
+				v2.animspeed = 85
+			end
+		end
+
+		--floor collision
+		if v.py > waterline*2 and v.vy > 0 then v.vy = 0 end
 	end
 end

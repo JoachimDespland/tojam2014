@@ -1,17 +1,26 @@
 function love.load()
-	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=false})
+	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=true})
 
 	love.graphics.setDefaultFilter("nearest", "nearest", 0)
 	image = love.graphics.newImage("puffin_sprite_sm.png")
 	jelly_image = love.graphics.newImage("jelly_sprite_sm_line.png")
+	effect_image = love.graphics.newImage("effect_sprites.png")
 
 	bg0 = love.graphics.newImage("Background_Skyback.png")
 	print(bg0)
 	bg1 = love.graphics.newImage("Background_Clouds.png")
 	bg2 = love.graphics.newImage("Background_Clouds Front.png")
 	bg3 = love.graphics.newImage("Background_Cliffs Back.png")
+	bg31 = love.graphics.newImage("Background_Underwater Cliffs Back.png")
 	bg4 = love.graphics.newImage("Background_Cliffs.png")
+	bg4a = love.graphics.newImage("Background_Seaweed_Rocks.png")
 	bg5 = love.graphics.newImage("Background_Water back.png")
+
+	ambient = love.audio.newSource("ambient_ocean_v2.mp3")
+	ambient:setLooping(true)
+	ambient:setVolume(0.75)
+	ambient:play()
+
 
 	fillSprites()
 	canvas = love.graphics.newCanvas(1024, 1024)
@@ -19,25 +28,30 @@ function love.load()
 	-- world variables
 	airdensity = 0.001225
 	waterdensity = 1
-	gravity = 70
+	gravity = 200
 	waterline = 180
+	looparound = 2000
 
 	--puffin variables
-	flypower = 0.25
-	swimpower = 0.25
-	swimspeed = 50
-	flyspeed = 50
+	flypower = 0.03
+	swimpower = 0.03
+	swimspeed = 108
+	flyspeed = 108
 	swimlift = 0.0002
 	flylift = 0.00015
-	flapthreshold = 20
-	turnthreshold = 0.2
+	flapthreshold = 5
+	turnthreshold = 3
 
 	-- variables component tables
 	physics = {}
 	draw = {}
 	drawjelly = {}
+	drawfish = {}
 	puffins = {}
 	animations = {}
+	points = {}
+	bubbles = {}
+	fishes = {}
 
 	-- create a puffin and add it to component tables
 	puffin = {
@@ -46,47 +60,100 @@ function love.load()
 		line = 0,
 
 		--physics
-		px = 160, 
-		py = 0, 
+		px = 180, 
+		py = 60, 
 		vx = 0, 
 		vy = 0, 
 		mass = 0.5, 
-		density = 0.6, 
-		drag = 0.001,
+		density = 0.5, 
+		waterdrag = 0.001,
+		airdrag = 0.2,
 
 		--puffin
-		flaptimer = 0,
-		flapkey = false,
-		flapnext = false,
 		movex = 0,
 		movey = 0,
 		left = false,
+		underwater = false,
+		splash1 = love.audio.newSource("splash_out_v3.wav", "static"),
+		splash2 = love.audio.newSource("splash_in_v1.wav", "static"),
+		gulp = love.audio.newSource("gulp_v1.wav", "static"),
+		slap = love.audio.newSource("jelly_slap_v7.wav"),
+
 
 		--animation
 		animstate = 0,
 		animspeed = 10,
 		animstart = 0,
 		animcount = 4,
-		animloop = true,
+		animloop = false,
 	}	
 	table.insert(draw, puffin)
 	table.insert(physics, puffin)
 	table.insert(puffins, puffin)
 	table.insert(animations, puffin)
 
-	-- create a test object and add it to component tables
+
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+	createFish()
+
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+	createJelly()
+
+	camera = 0
+end
+
+function createJelly()
 	object = {
 		sprite = 0,
 		line = 0, 
-		px = 260, 
-		py = 0, 
+		px = math.random(-looparound,looparound),
+		py = math.random(waterline,waterline*2),
 		vx = 0, 
 		vy = 0, 
-		mass = 2, 
-		density = 0.8, 
-		drag = 0.1,
+		mass = 1, 
+		density = 1, 
+		waterdrag = 0.05,
+		airdrag = 0.05,
 
-		animstate = 0,
+		movey = 5,
+
+		animstate = math.random(0,14),
 		animspeed = 10,
 		animstart = 0,
 		animcount = 14,
@@ -95,51 +162,39 @@ function love.load()
 	table.insert(drawjelly, object)
 	table.insert(physics, object)
 	table.insert(animations, object)
+end
 
-	object2 = {
-		sprite = 0,
-		line = 0, 
-		px = 290, 
-		py = 100, 
-		vx = 0, 
-		vy = 0, 
-		mass = 2, 
-		density = 0.8, 
-		drag = 0.1,
+function createFish()
+	local fish = {
+		--sprite
+		sprite = 0, 
+		line = 8,
 
-		animstate = 0,
+		--physics
+		px = math.random(-looparound,looparound),
+		py = math.random(waterline,waterline*2),
+		vx = 0,
+		vy = 0,
+		mass = 0.5, 
+		density = 1.0, 
+		waterdrag = 0.01,
+		airdrag = 0.2,
+
+		--fish
+		movex = -16-math.random(0,8),
+		movey = 0,
+
+		--animation
+		animstate = math.random(0,4),
 		animspeed = 10,
 		animstart = 0,
-		animcount = 14,
+		animcount = 8,
 		animloop = true,
-	}	
-	table.insert(drawjelly, object2)
-	table.insert(physics, object2)
-	table.insert(animations, object2)
-
-	object3 = {
-		sprite = 0,
-		line = 0, 
-		px = 360, 
-		py = 50, 
-		vx = 0, 
-		vy = 0, 
-		mass = 2, 
-		density = 0.8, 
-		drag = 0.1,
-
-		animstate = 0,
-		animspeed = 10,
-		animstart = 0,
-		animcount = 14,
-		animloop = true,
-	}	
-	table.insert(drawjelly, object3)
-	table.insert(physics, object3)
-	table.insert(animations, object3)
-
-
-	camera = 0
+	}
+	table.insert(drawfish, fish)
+	table.insert(physics, fish)
+	table.insert(fishes, fish)
+	table.insert(animations, fish)	
 end
 
 function fillSprites()
@@ -161,24 +216,86 @@ function love.update(dt)
 	camera=-puffin.px+320
 	doPhysics(dt)
 	doPuffins(dt)
+	doFish(dt)
 	doAnimations(dt)
+end
+
+function doBubbles(x,y,velx,vely,wid,n)
+	for variable = 0, n, 1 do
+		local bubble = {
+			px = x+math.random(-wid/8,wid/8)*math.random(-wid/8,wid/8), 
+			py = y, 
+			vx = math.random(-wid,wid)*math.random(-wid,wid)
+			+math.random(-velx*0.07,velx*0.07)*math.random(-velx*0.07,velx*0.07), 
+			vy = math.abs(math.random(-vely*0.07,vely*0.07)*math.random(-vely*0.07,vely*0.07)), 
+			mass = 0.01, 
+			density = 0.5, 
+			waterdrag = 0.00066,
+			airdrag = 0.001,
+		}
+		table.insert(bubbles, bubble)
+	end
+end
+
+
+function doSplash(x,y,velx,vely,wid,n)
+	for variable = 0, n, 1 do
+		local point = {
+			px = x+math.random(-wid/8,wid/8)*math.random(-wid/8,wid/8), 
+			py = y, 
+			vx = math.random(-wid,wid)*math.random(-wid,wid)
+			+math.random(-velx*0.07,velx*0.07)*math.random(-velx*0.07,velx*0.07), 
+			vy = -math.abs(math.random(-vely*0.07,vely*0.07)*math.random(-vely*0.07,vely*0.07)), 
+			mass = 0.0001, 
+			density = 0.8, 
+			waterdrag = 0.001,
+			airdrag = 0.001,
+		}
+		table.insert(points, point)
+	end
+end
+
+function drawPoints()
+	love.graphics.setPointStyle("rough")
+	love.graphics.setPointSize(1)
+	for k,v in pairs(points) do
+		love.graphics.point( camera+v.px, v.py )
+		if v.py > waterline then 
+			points[k] = nil
+		end
+	end
+
+	for k,v in pairs(bubbles) do
+		love.graphics.point( camera+v.px, v.py )
+		if v.py < waterline then 
+			bubbles[k] = nil
+		end
+	end
 end
 
 function drawSprites()
 	love.graphics.draw(bg0,0,0)
 
-	love.graphics.draw(bg1,(camera*0.1)%640,0)
-	love.graphics.draw(bg1,(camera*0.1)%640-640,0)
+	love.graphics.draw(bg1,math.floor(camera*0.1)%640,0)
+	love.graphics.draw(bg1,math.floor(camera*0.1)%640-640,0)
 
-	love.graphics.draw(bg2,(camera*0.2)%640,0)
-	love.graphics.draw(bg2,(camera*0.2)%640-640,0)
+	love.graphics.draw(bg2,math.floor(camera*0.2)%640,0)
+	love.graphics.draw(bg2,math.floor(camera*0.2)%640-640,0)
 
-	love.graphics.draw(bg3,(camera*0.4)%640,0)
-	love.graphics.draw(bg3,(camera*0.4)%640-640,0)
+	love.graphics.draw(bg3,math.floor(camera*0.4)%640,0)
+	love.graphics.draw(bg3,math.floor(camera*0.4)%640-640,0)
 
-	love.graphics.draw(bg4,(camera*0.8)%640,0)
-	love.graphics.draw(bg4,(camera*0.8)%640-640,0)
+	love.graphics.draw(bg31,math.floor(camera*0.6)%640,0)
+	love.graphics.draw(bg31,math.floor(camera*0.6)%640-640,0)
+
+	love.graphics.draw(bg4,math.floor(camera*0.8)%640,0)
+	love.graphics.draw(bg4,math.floor(camera*0.8)%640-640,0)
+	love.graphics.draw(bg4a,math.floor(camera*0.8)%640,0)
+	love.graphics.draw(bg4a,math.floor(camera*0.8)%640-640,0)
 	
+	love.graphics.draw(bg5,math.floor(camera)%640-640,0)	
+	love.graphics.draw(bg5,math.floor(camera)%640,0)	
+
 	for k,v in pairs(draw) do
 		love.graphics.draw(
 			image, 
@@ -195,8 +312,15 @@ function drawSprites()
 		)
 	end
 
-	love.graphics.draw(bg5,camera%640-640,0)	
-	love.graphics.draw(bg5,camera%640,0)	
+	for k,v in pairs(drawfish) do
+		love.graphics.draw(
+			effect_image,
+			love.graphics.newQuad(v.sprite*16,v.line*16, 16,16, 128,192),
+			camera+v.px-8,v.py-8
+		)
+	end
+
+	drawPoints()
 end
 
 function love.draw()
@@ -221,7 +345,15 @@ function doAnimations(dt)
 end
 
 function doPhysics(dt)
-	for k,v in pairs(physics) do
+
+	function physicfun(v)
+
+		while v.px > -camera+320+looparound do
+			v.px = v.px-2*looparound
+		end
+		while v.px < -camera+320-looparound do
+			v.px = v.px+2*looparound
+		end
 
 		--acceleration
 		v.ax = 0
@@ -232,10 +364,13 @@ function doPhysics(dt)
 		local movepower = 0
 		local movespeed = 0
 		local movelift = 0
+		local drag = 0
 		if (v.py < waterline) then 
 			fluiddensity = airdensity
+			drag = (fluiddensity*v.airdrag)/v.mass
 		else 
 			fluiddensity = waterdensity
+			drag = (fluiddensity*v.waterdrag)/v.mass
 		end
 
 		--buoyancy
@@ -243,8 +378,6 @@ function doPhysics(dt)
 		v.ay = v.ay - (fluiddensity*volume*gravity)/v.mass
 
 		--drag
-		local drag = (fluiddensity*v.drag)/v.mass
-
 		v.vx = v.vx/(1+drag)
 		v.vy = v.vy/(1+drag)
 
@@ -255,6 +388,69 @@ function doPhysics(dt)
 		--position
 		v.px = v.px+v.vx*dt
 		v.py = v.py+v.vy*dt
+	end
+
+	for k,v in pairs(physics) do
+		physicfun(v)
+	end
+
+	for k,v in pairs(points) do
+		physicfun(v)
+	end
+
+	for k,v in pairs(bubbles) do
+		physicfun(v)
+	end
+
+end
+
+function doFish(dt)
+	for k,v in pairs(fishes) do
+		v.vx = v.vx + (v.movex-v.vx)
+	end
+	for k,v in pairs(drawjelly) do
+		if (v.py > 300) then
+			v.movey = -5
+		end
+		if (v.py < 200) then
+			v.movey = 5
+		end
+		v.animspeed = v.animspeed + ((15 -v.movey*0.5)-v.animspeed)*0.04
+		v.vy = v.vy + (v.movey-v.vy)*0.05
+
+		for k2,v2 in next,drawjelly,k do
+			local dx = v.px-v2.px
+			local dy = v.py-v2.py
+
+			local dvx = v.vx-v2.vx
+			local dvy = v.vy-v2.vy
+
+			local dist = math.sqrt(dx*dx+dy*dy)
+			local nx = dx/dist
+			local ny = dy/dist
+
+			local vn = dvx*nx+dvy*ny
+
+			if dist < 14 and vn < 0 then
+
+				local impulse = -30+2*vn/(1/v.mass+1/v2.mass)
+
+				local ix = nx*impulse
+				local iy = ny*impulse
+
+				v.vx = v.vx - ix/v.mass
+				v.vy = v.vy - iy/v.mass
+
+				v2.vx = v2.vx + ix/v2.mass
+				v2.vy = v2.vy + iy/v2.mass
+
+				v2.px = v.px-nx*15
+				v2.py = v.py-ny*15
+
+				v.animspeed = 85
+				v2.animspeed = 85
+			end
+		end
 	end
 end
 
@@ -305,40 +501,21 @@ function doPuffins(dt)
 		end	
 
 		--fly/swim-------------
-		if love.keyboard.isDown( "z" ) then
-			if v.flapkey == false and v.flaptimer < 0.2 then
-				v.flapnext = true
-			end
-			v.flapkey = true
-		else
-			v.flapkey = false
-		end
-
-		if v.flaptimer > 0 then
-			v.flaptimer = v.flaptimer - dt
-		end
-
 		if (v.py < waterline) then
-			if v.flapnext and v.flaptimer <= 0 then
-				v.flaptimer = 0.5
-				print "flap"
-				v.flapnext = false
-
+			if (v.line == 0 or v.line == 1) and v.vy < 0 then
 				v.vy = v.vy + (-flyspeed-v.vy)*flypower
 			end
 		else
-			if v.flapnext and v.flaptimer <= 0 then
-				v.flaptimer = 0.5
-				print "swim"
-				v.flapnext = false
-
-				if v.movex == 0 and v.movey == 0 then
+			if true then
+				if true then -- v.movex == 0 and v.movey == 0 then
 					v.movex = v.vx/speed
 					v.movey = v.vy/speed
 				end
 
-				v.vx = v.vx + (v.movex*swimspeed-v.vx)*swimpower*math.abs(v.movex)
-				v.vy = v.vy + (v.movey*swimspeed-v.vy)*swimpower*math.abs(v.movey)
+				if swimspeed > speed then
+					v.vx = v.vx + (v.movex*swimspeed-v.vx)*swimpower*math.abs(v.movex)
+					v.vy = v.vy + (v.movey*swimspeed-v.vy)*swimpower*math.abs(v.movey)
+				end
 			end
 		end
 
@@ -346,6 +523,10 @@ function doPuffins(dt)
 		if v.left == false and v.vx < -turnthreshold then v.left = true end
 
 		function glide() 
+			v.animloop = true
+			v.animcount = 8
+			if v.line < 8 then v.animstate = 8 end
+
 			angle = math.atan2(v.vy/speed,v.vx/speed)
 			if (angle < 0) then angle = angle + math.pi*2 end
 
@@ -357,10 +538,9 @@ function doPuffins(dt)
 				v.line = 10
 			elseif angle < 2*math.pi*7/32 then
 				v.line = 11
-			elseif angle < 2*math.pi*8.1/32 then
-				v.line = 12
 			elseif angle < 2*math.pi*9/32 then
-				v.line = 13
+				if (v.left) then v.line = 13
+				else v.line = 12 end
 			elseif angle < 2*math.pi*11/32 then
 				v.line = 14
 			elseif angle < 2*math.pi*13/32 then
@@ -375,10 +555,9 @@ function doPuffins(dt)
 				v.line = 19
 			elseif angle < 2*math.pi*23/32 then
 				v.line = 20
-			elseif angle < 2*math.pi*24.1/32 then
-				v.line = 21
 			elseif angle < 2*math.pi*25/32 then
-				v.line = 22
+				if (v.left) then v.line = 21
+				else v.line = 22 end
 			elseif angle < 2*math.pi*27/32 then
 				v.line = 23
 			elseif angle < 2*math.pi*29/32 then
@@ -388,17 +567,90 @@ function doPuffins(dt)
 			end
 		end
 
+		function fly()
+			v.animcount = 4
+			v.animspeed = 10
+			v.animloop = true
+			if v.line ~= 0 and v.line ~=1 then v.animstate = 0 end
+			if v.left == true then 
+				v.line = 1
+			else 
+				v.line = 0 
+			end
+		end
+
+		--fix threshold to transition state
 		if (v.py < waterline) then
 			if v.vy > flapthreshold then 
 				glide()
 			elseif v.vy < -flyspeed then 
 				glide()
 			else 
-				if v.left == true then v.line = 1
-				else v.line = 0
-				end
+				fly()
 			end
-		else glide()
+		else 
+			glide() 
+		end
+
+		--splash
+		if (v.py < waterline and v.underwater == true) then 
+			v.underwater = false
+			v.vy = math.min(v.vy, -100)
+			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)
+			v.splash1:play()
+		elseif (v.py > waterline and v.underwater == false) then
+			v.underwater = true
+			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)			
+			doBubbles(v.px,waterline+0.1,v.vx,v.vy,8,200)
+			v.splash2:play()
+		end		
+
+
+		--fish collision
+		for k2,v2 in pairs(fishes) do
+			local dx = v.px-v2.px
+			local dy = v.py-v2.py
+
+			if dx*dx+dy*dy < 128 then
+				v.gulp:play()
+				v2.px = v2.px+looparound
+			end
+		end
+
+		--jellyfish collision
+		for k2,v2 in pairs(drawjelly) do
+			local dx = v.px-v2.px
+			local dy = v.py-v2.py
+
+			local dvx = v.vx-v2.vx
+			local dvy = v.vy-v2.vy
+
+			local dist = math.sqrt(dx*dx+dy*dy)
+			local nx = dx/dist
+			local ny = dy/dist
+
+			local vn = dvx*nx+dvy*ny
+
+			if dist < 14 and vn < 0 then
+
+				v.slap:play()
+
+				local impulse = -30+2*vn/(1/v.mass+1/v2.mass)
+
+				local ix = nx*impulse
+				local iy = ny*impulse
+
+				v.vx = v.vx - ix/v.mass
+				v.vy = v.vy - iy/v.mass
+
+				v2.vx = v2.vx + ix/v2.mass
+				v2.vy = v2.vy + iy/v2.mass
+
+				v2.px = v.px-nx*15
+				v2.py = v.py-ny*15
+
+				v2.animspeed = 85
+			end
 		end
 	end
 end

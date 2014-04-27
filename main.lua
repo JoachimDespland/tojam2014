@@ -5,9 +5,9 @@ function love.load()
 	image = love.graphics.newImage("puffin_sprite_sm.png")
 	jelly_image = love.graphics.newImage("jelly_final.png")
 	fish_image = love.graphics.newImage("fish.png")
+	gulls_image = love.graphics.newImage("gulls_final.png")
 
 	bg0 = love.graphics.newImage("Background_Skyback.png")
-	print(bg0)
 	bg1 = love.graphics.newImage("Background_Clouds.png")
 	bg2 = love.graphics.newImage("Background_Clouds Front.png")
 	bg3 = love.graphics.newImage("Background_Cliffs Back.png")
@@ -47,11 +47,39 @@ function love.load()
 	draw = {}
 	drawjelly = {}
 	drawfish = {}
+	drawseagull = {}
 	puffins = {}
 	animations = {}
 	points = {}
 	bubbles = {}
 	fishes = {}
+
+	-- create a puffin and add it to component tables
+	seagull = {
+		--sprite
+		sprite = 0, 
+		line = 0,
+
+		--physics
+		px = 60, 
+		py = waterline, 
+		vx = 0, 
+		vy = 0, 
+		mass = 0.5, 
+		density = 0.5, 
+		waterdrag = 0.5,
+		airdrag = 0.2,
+
+		--animation
+		animstate = 0,
+		animspeed = 10,
+		animstart = 0,
+		animcount = 27,
+		animloop = true,
+	}	
+	table.insert(drawseagull, seagull)
+	table.insert(physics, seagull)
+	table.insert(animations, seagull)
 
 	-- create a puffin and add it to component tables
 	puffin = {
@@ -78,6 +106,7 @@ function love.load()
 		splash2 = love.audio.newSource("splash_in_v1.wav", "static"),
 		gulp = love.audio.newSource("gulp_v1.wav", "static"),
 		slap = love.audio.newSource("jelly_slap_v7.wav"),
+		yell = love.audio.newSource("puffin_yell_v1.wav"),
 
 
 		--animation
@@ -92,6 +121,8 @@ function love.load()
 		downkey = "down",
 		leftkey = "left",
 		rightkey = "right",
+
+		bubbles = 0,
 	}	
 	table.insert(draw, puffin)
 	table.insert(physics, puffin)
@@ -138,6 +169,8 @@ function love.load()
 		downkey = "s",
 		leftkey = "a",
 		rightkey = "d",
+
+		bubbles = 0,
 	}	
 	table.insert(draw, puffin2)
 	table.insert(physics, puffin2)
@@ -278,6 +311,7 @@ function love.update(dt)
 	doPhysics(dt)
 	doPuffins(dt)
 	doFish(dt)
+	doBubbleAnim(dt)
 	doAnimations(dt)
 end
 
@@ -294,10 +328,12 @@ function doBubbles(x,y,velx,vely,wid,n)
 			waterdrag = 0.00066,
 			airdrag = 0.001,
 
-			animstate = math.random(0,frames),
-			animspeed = 10,
+			sprite = 0,
+			line = 4-math.random(0,2)-math.random(0,1)*math.random(0,1)*math.random(0,1),
+			animstate = math.random(0,4),
+			animspeed = 20,
 			animstart = 0,
-			animcount = frames,
+			animcount = 3,
 			animloop = true,			
 		}
 		table.insert(bubbles, bubble)
@@ -322,6 +358,21 @@ function doSplash(x,y,velx,vely,wid,n)
 	end
 end
 
+function doBubbleAnim(dt)
+	for k,v in pairs(bubbles) do
+		v.animstate = v.animstate + dt*v.animspeed
+		v.sprite = v.animstart+math.floor(v.animstate)
+		if v.sprite >= v.animstart+v.animcount then
+			if v.animloop then
+				v.sprite = v.sprite - v.animcount
+				v.animstate = v.animstate - v.animcount
+			else
+				v.sprite = v.animstart + v.animcount-1
+			end
+		end
+	end
+end
+
 function drawPoints()
 	love.graphics.setPointStyle("rough")
 	love.graphics.setPointSize(1)
@@ -333,7 +384,13 @@ function drawPoints()
 	end
 
 	for k,v in pairs(bubbles) do
-		love.graphics.point( camera+v.px, v.py )
+		--love.graphics.point( camera+v.px, v.py )
+		love.graphics.draw(
+			fish_image, 
+			love.graphics.newQuad(v.sprite*16,v.line*16, 16,16, 128,384),
+			camera+v.px-8,v.py-8
+		)		
+
 		if v.py < waterline then 
 			bubbles[k] = nil
 		end
@@ -359,9 +416,18 @@ function drawSprites()
 	love.graphics.draw(bg4,math.floor(camera*0.8)%640-640,0)
 	love.graphics.draw(bg4a,math.floor(camera*0.8)%640,0)
 	love.graphics.draw(bg4a,math.floor(camera*0.8)%640-640,0)
-	
-	love.graphics.draw(bg5,math.floor(camera)%640-640,0)	
-	love.graphics.draw(bg5,math.floor(camera)%640,0)	
+
+	love.graphics.draw(bg5,math.floor(camera)%640,0)
+	love.graphics.draw(bg5,math.floor(camera)%640-640,0)
+
+
+	for k,v in pairs(drawseagull) do
+		love.graphics.draw(
+			gulls_image, 
+			love.graphics.newQuad(v.sprite*16,v.line*16, 16,16, 432,16),
+			camera+v.px-12,v.py-12
+		)
+	end	
 
 	for k,v in pairs(draw) do
 		love.graphics.draw(
@@ -524,7 +590,7 @@ end
 
 function doPuffins(dt)
 
-	--puffin collision
+	--edge collision
 	if math.abs(puffin.px-puffin2.px) > 640 
 		and ((puffin.px > puffin2.px and puffin.vx-puffin2.vx > 0) 
 		or (puffin.px < puffin2.px and puffin.vx-puffin2.vx < 0)) then 
@@ -536,6 +602,11 @@ function doPuffins(dt)
 	end
 
 	for k,v in pairs(puffins) do
+
+		v.bubbles = v.bubbles*0.9
+		if (math.random(0,100)<v.bubbles*100) then
+			doBubbles(v.px,v.py,90,90,0,1)
+		end
 
 		if love.keyboard.isDown(v.downkey) then
 			v.movey = 1
@@ -686,15 +757,17 @@ function doPuffins(dt)
 
 		--splash
 		if (v.py < waterline and v.underwater == true) then 
+			v.bubbles = 0
 			v.underwater = false
 			v.vy = math.min(v.vy, -80)
 			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)
 			v.splash1:play()
 		elseif (v.py > waterline and v.underwater == false) then
 			v.vy = math.max(v.vy, 80)
+			v.bubbles = 10
 			v.underwater = true
-			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)			
-			doBubbles(v.px,waterline+0.1,v.vx,v.vy,8,200)
+			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,400)			
+			doBubbles(v.px,waterline+0.1,v.vx,v.vy,8,150)
 			v.splash2:play()
 		end		
 
@@ -762,7 +835,7 @@ function doPuffins(dt)
 
 			if dist < 10 and vn < 0 then
 
-				v.slap:play()
+				v.yell:play()
 
 				local impulse = -30+2*vn/(1/v.mass+1/v2.mass)
 

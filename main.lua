@@ -4,7 +4,7 @@ function love.load()
 	love.graphics.setDefaultFilter("nearest", "nearest", 0)
 	image = love.graphics.newImage("puffin_sprite_sm.png")
 	jelly_image = love.graphics.newImage("jelly_sprite_sm_line.png")
-	effect_image = love.graphics.newImage("effect_sprites.png")
+	fish_image = love.graphics.newImage("fish.png")
 
 	bg0 = love.graphics.newImage("Background_Skyback.png")
 	print(bg0)
@@ -30,7 +30,7 @@ function love.load()
 	waterdensity = 1
 	gravity = 200
 	waterline = 180
-	looparound = 2000
+	looparound = 3000
 
 	--puffin variables
 	flypower = 0.03
@@ -93,47 +93,29 @@ function love.load()
 	table.insert(animations, puffin)
 
 
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
-	createFish()
+	for i = 0, 15 , 1 do
+		createFish(9)
+	end
+	for i = 0, 15 , 1 do
+		createFish(7)
+	end
+	for i = 0, 15 , 1 do
+		createFish(5)
+	end
+	for i = 0, 10, 1 do
+		createFish(11)
+	end
+	for i = 0, 5 , 1 do
+		createFish(15)
+	end
+	for i = 0, 5 , 1 do
+		createFish(13)
+	end
 
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
-	createJelly()
+
+	for i = 0, 30 , 1 do
+		createJelly()
+	end
 
 	camera = 0
 end
@@ -164,15 +146,41 @@ function createJelly()
 	table.insert(animations, object)
 end
 
-function createFish()
+function createFish(t)
+	local speed
+	local animcount
+	local mindepth
+	
+	if t == 11 then
+		speed = 17+math.random(-5,5)
+		frames = 8
+		mindepth = 1/2
+	elseif t == 15 then
+		speed = 25+math.random(-5,5)
+		frames = 6
+		mindepth = 4/5
+	elseif t == 21 then
+		speed = 20+math.random(-5,5)
+		frames = 4
+		mindepth = 1/3
+	else
+		speed = 13+math.random(-5,5)
+		frames = 4
+		mindepth = 0
+	end
+
+	if (math.random(0,1) > 0.5) then
+		speed = -speed
+	end
+
 	local fish = {
 		--sprite
 		sprite = 0, 
-		line = 8,
+		line = t,
 
 		--physics
 		px = math.random(-looparound,looparound),
-		py = math.random(waterline,waterline*2),
+		py = math.random(waterline+16+waterline*mindepth,waterline*2-8),
 		vx = 0,
 		vy = 0,
 		mass = 0.5, 
@@ -181,14 +189,15 @@ function createFish()
 		airdrag = 0.2,
 
 		--fish
-		movex = -16-math.random(0,8),
+		movex = speed,
 		movey = 0,
+		fishtype = t,
 
 		--animation
-		animstate = math.random(0,4),
+		animstate = math.random(0,frames),
 		animspeed = 10,
 		animstart = 0,
-		animcount = 8,
+		animcount = frames,
 		animloop = true,
 	}
 	table.insert(drawfish, fish)
@@ -314,8 +323,8 @@ function drawSprites()
 
 	for k,v in pairs(drawfish) do
 		love.graphics.draw(
-			effect_image,
-			love.graphics.newQuad(v.sprite*16,v.line*16, 16,16, 128,192),
+			fish_image,
+			love.graphics.newQuad(v.sprite*16,v.line*16, 16,16, 128,384),
 			camera+v.px-8,v.py-8
 		)
 	end
@@ -407,6 +416,7 @@ end
 function doFish(dt)
 	for k,v in pairs(fishes) do
 		v.vx = v.vx + (v.movex-v.vx)
+		if (v.movex > 0) then v.line = v.fishtype+1 end
 	end
 	for k,v in pairs(drawjelly) do
 		if (v.py > 300) then

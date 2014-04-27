@@ -760,14 +760,16 @@ function doPuffins(dt)
 			v.bubbles = 0
 			v.underwater = false
 			v.vy = math.min(v.vy, -80)
-			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,200)
+			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,800)
+			v.splash1:stop()
 			v.splash1:play()
 		elseif (v.py > waterline and v.underwater == false) then
 			v.vy = math.max(v.vy, 80)
 			v.bubbles = 10
 			v.underwater = true
-			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,400)			
+			doSplash(v.px,waterline-0.1,v.vx,v.vy,8,800)			
 			doBubbles(v.px,waterline+0.1,v.vx,v.vy,8,150)
+			v.splash2:stop()
 			v.splash2:play()
 		end		
 
@@ -778,6 +780,7 @@ function doPuffins(dt)
 			local dy = v.py-v2.py
 
 			if dx*dx+dy*dy < 128 then
+				v.gulp:stop()
 				v.gulp:play()
 				v2.px = v2.px+looparound
 			end
@@ -799,6 +802,7 @@ function doPuffins(dt)
 
 			if dist < 14 and vn < 0 then
 
+				v.slap:stop()
 				v.slap:play()
 
 				local impulse = -30+2*vn/(1/v.mass+1/v2.mass)

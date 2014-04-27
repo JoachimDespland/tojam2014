@@ -1,5 +1,5 @@
 function love.load()
-	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=true})
+	mode_success = love.window.setMode( 1280, 720, {vsync=true, fullscreen=false})
 
 	love.graphics.setDefaultFilter("nearest", "nearest", 0)
 	image = love.graphics.newImage("puffin_sprite_sm.png")
@@ -30,7 +30,7 @@ function love.load()
 	swimlift = 0.0002
 	flylift = 0.00015
 	flapthreshold = 20
-	turnthreshold = 0
+	turnthreshold = 0.2
 
 	-- variables component tables
 	physics = {}
@@ -342,7 +342,7 @@ function doPuffins(dt)
 			end
 		end
 
-		if v.left == true and v.vx > turnthreshold then v.left = true end
+		if v.left == true and v.vx > turnthreshold then v.left = false end
 		if v.left == false and v.vx < -turnthreshold then v.left = true end
 
 		function glide() 
@@ -394,7 +394,7 @@ function doPuffins(dt)
 			elseif v.vy < -flyspeed then 
 				glide()
 			else 
-				if left then v.line = 1
+				if v.left == true then v.line = 1
 				else v.line = 0
 				end
 			end
